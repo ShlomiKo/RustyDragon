@@ -1,0 +1,113 @@
+﻿@page "/"
+@using RustyDragon.Common.Interface
+@using RustyDragon.Common.Model
+@inject IInventoryRepository Repo
+@inject IUpdateStrategy UpdateStrategy
+
+<h1>Initial inventory</h1>
+
+@if (_initialInventory == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Days to sell</th>
+                <th>Best before date</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cheese in _initialInventory)
+            {
+                <tr>
+                    <td>@cheese.Name</td>
+                    <td>@cheese.CheeseType</td>
+                    <td>@cheese.DaysToSell</td>
+                    <td>@cheese.BestBeforeDate.ToShortDateString()</td>
+                    <td>@cheese.Price.ToString("0.00")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-primary" @onclick="AdvanceDay">Advance a day</button>
+    <button class="btn btn-primary" @onclick="ResetInventory">Reset Inventory</button>
+
+    @if (_updatedInventory != null)
+    {
+        <h1>Current inventory</h1>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Days to sell</th>
+                    <th>Best before date</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cheese in _updatedInventory)
+                {
+                    <tr>
+                        <td>@cheese.Name</td>
+                        <td>@cheese.CheeseType</td>
+                        <td>@cheese.DaysToSell</td>
+                        <td>@cheese.BestBeforeDate.ToShortDateString()</td>
+                        <td>@cheese.Price.ToString("0.00")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+}
+
+@code {
+    private Cheese[] _initialInventory;
+    private Cheese[] _updatedInventory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _initialInventory = (await Repo.GetInventoryAsync()).ToArray();
+    }
+
+    private void ResetInventory()
+    {
+        _updatedInventory = null;
+    }
+
+    private async Task AdvanceDay()
+    {
+        if (_updatedInventory == null)
+        {
+            _updatedInventory = (await Repo.GetInventoryAsync()).ToArray();
+        }
+
+        for (var i = 0; i < _updatedInventory.Length; i++)
+        {
+            if (_updatedInventory[i].DaysToSell > 0)
+            {
+                _updatedInventory[i].DaysToSell -= 1;
+                _updatedInventory[i].BestBeforeDate = _updatedInventory[i].BestBeforeDate.AddDays(-1);
+            }
+            else
+            {
+                continue;
+            }
+
+            _updatedInventory[i] = UpdateStrategy.Update(_updatedInventory[i], _updatedInventory[i].CheeseType);
+
+            //var context = new UpdateContext(_updatedInventory[i].CheeseType);
+            //_updatedInventory[i] = context.Update(_updatedInventory[i]);
+        }
+    }
+}
+
